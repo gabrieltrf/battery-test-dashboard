@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Upload } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { BatteryTestService } from "@/services/csvService";
 
 interface FileUploadProps {
@@ -14,6 +14,7 @@ const FileUpload = ({ onFileUploaded }: FileUploadProps) => {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const fileInputRef = useState<HTMLInputElement | null>(null);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -39,6 +40,11 @@ const FileUpload = ({ onFileUploaded }: FileUploadProps) => {
     if (files && files.length > 0) {
       await processFiles(files);
     }
+  };
+
+  const handleButtonClick = () => {
+    // Trigger the hidden file input click
+    document.getElementById("file-upload")?.click();
   };
 
   const processFiles = async (files: FileList) => {
@@ -97,20 +103,21 @@ const FileUpload = ({ onFileUploaded }: FileUploadProps) => {
           </p>
         </div>
         <div>
-          <label htmlFor="file-upload">
-            <Button disabled={loading}>
-              {loading ? "Processando..." : "Selecionar Arquivos"}
-            </Button>
-            <input
-              id="file-upload"
-              type="file"
-              accept=".csv"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-              disabled={loading}
-            />
-          </label>
+          <Button 
+            onClick={handleButtonClick} 
+            disabled={loading}
+          >
+            {loading ? "Processando..." : "Selecionar Arquivos"}
+          </Button>
+          <input
+            id="file-upload"
+            type="file"
+            accept=".csv"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+            disabled={loading}
+          />
         </div>
       </div>
     </Card>
