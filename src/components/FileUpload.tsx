@@ -53,30 +53,17 @@ const FileUpload = ({ onFileUploaded }: FileUploadProps) => {
     setLoading(true);
     
     try {
-      // Check if it's a text file or CSV
-      if (selectedFile.type === "text/csv" || 
-          selectedFile.type === "text/plain" || 
-          selectedFile.name.toLowerCase().endsWith(".csv") || 
-          selectedFile.name.toLowerCase().endsWith(".txt")) {
-        
-        console.log("Processing file:", selectedFile.name, "Type:", selectedFile.type);
-        
-        await BatteryTestService.add(selectedFile);
-        
-        toast({
-          title: "Arquivo carregado com sucesso!",
-          description: `${selectedFile.name} foi processado e adicionado à lista.`,
-        });
-        
-        setSelectedFile(null);
-        onFileUploaded();
-      } else {
-        toast({
-          title: "Tipo de arquivo inválido",
-          description: "Por favor, carregue apenas arquivos CSV ou TXT.",
-          variant: "destructive",
-        });
-      }
+      console.log("Processando arquivo:", selectedFile.name, "Tipo:", selectedFile.type);
+      
+      await BatteryTestService.add(selectedFile);
+      
+      toast({
+        title: "Arquivo carregado com sucesso!",
+        description: `${selectedFile.name} foi processado e adicionado à lista.`,
+      });
+      
+      setSelectedFile(null);
+      onFileUploaded();
     } catch (error) {
       console.error("Erro ao processar arquivo:", error);
       toast({
