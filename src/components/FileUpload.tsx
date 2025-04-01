@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload } from "lucide-react";
+import { Upload, AlertCircle, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BatteryTestService } from "@/services/csvService";
 
@@ -13,9 +13,9 @@ interface FileUploadProps {
 const FileUpload = ({ onFileUploaded }: FileUploadProps) => {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
-  const fileInputRef = useState<HTMLInputElement | null>(null);
-
+  
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragging(true);
@@ -31,14 +31,14 @@ const FileUpload = ({ onFileUploaded }: FileUploadProps) => {
 
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      await processFiles(files);
+      setSelectedFile(files[0]);
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      await processFiles(files);
+      setSelectedFile(files[0]);
     }
   };
 
@@ -47,36 +47,46 @@ const FileUpload = ({ onFileUploaded }: FileUploadProps) => {
     document.getElementById("file-upload")?.click();
   };
 
-  const processFiles = async (files: FileList) => {
+  const handleProcessFile = async () => {
+    if (!selectedFile) return;
+    
     setLoading(true);
     
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (file.type === "text/csv" || file.name.endsWith(".csv")) {
-        try {
-          await BatteryTestService.add(file);
-          toast({
-            title: "Arquivo carregado com sucesso!",
-            description: `${file.name} foi processado e adicionado à lista.`,
-          });
-        } catch (error) {
-          toast({
-            title: "Erro ao processar arquivo",
-            description: `Não foi possível processar ${file.name}. Verifique o formato do arquivo.`,
-            variant: "destructive",
-          });
-        }
+    try {
+      // Check if it's a text file or CSV
+      if (selectedFile.type === "text/csv" || 
+          selectedFile.type === "text/plain" || 
+          selectedFile.name.toLowerCase().endsWith(".csv") || 
+          selectedFile.name.toLowerCase().endsWith(".txt")) {
+        
+        console.log("Processing file:", selectedFile.name, "Type:", selectedFile.type);
+        
+        await BatteryTestService.add(selectedFile);
+        
+        toast({
+          title: "Arquivo carregado com sucesso!",
+          description: `${selectedFile.name} foi processado e adicionado à lista.`,
+        });
+        
+        setSelectedFile(null);
+        onFileUploaded();
       } else {
         toast({
           title: "Tipo de arquivo inválido",
-          description: "Por favor, carregue apenas arquivos CSV.",
+          description: "Por favor, carregue apenas arquivos CSV ou TXT.",
           variant: "destructive",
         });
       }
+    } catch (error) {
+      console.error("Erro ao processar arquivo:", error);
+      toast({
+        title: "Erro ao processar arquivo",
+        description: error instanceof Error ? error.message : "Verifique o formato do arquivo.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
-    onFileUploaded();
   };
 
   return (
@@ -89,36 +99,66 @@ const FileUpload = ({ onFileUploaded }: FileUploadProps) => {
       onDrop={handleDrop}
     >
       <div className="flex flex-col items-center justify-center space-y-4">
-        <Upload
-          className={`w-12 h-12 ${
-            dragging ? "text-battery-blue" : "text-battery-gray"
-          }`}
-        />
-        <div className="text-center">
-          <h3 className="font-medium text-lg">
-            {dragging ? "Solte o arquivo aqui" : "Arraste e solte arquivos CSV"}
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">
-            ou clique para selecionar arquivos
-          </p>
-        </div>
-        <div>
-          <Button 
-            onClick={handleButtonClick} 
-            disabled={loading}
-          >
-            {loading ? "Processando..." : "Selecionar Arquivos"}
-          </Button>
-          <input
-            id="file-upload"
-            type="file"
-            accept=".csv"
-            multiple
-            className="hidden"
-            onChange={handleFileChange}
-            disabled={loading}
-          />
-        </div>
+        {selectedFile ? (
+          <>
+            <FileText 
+              className="w-12 h-12 text-battery-blue" 
+            />
+            <div className="text-center">
+              <h3 className="font-medium text-lg">{selectedFile.name}</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {(selectedFile.size / 1024).toFixed(2)} KB
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleProcessFile} 
+                disabled={loading}
+              >
+                {loading ? "Processando..." : "Processar Arquivo"}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setSelectedFile(null)}
+                disabled={loading}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <Upload
+              className={`w-12 h-12 ${
+                dragging ? "text-battery-blue" : "text-battery-gray"
+              }`}
+            />
+            <div className="text-center">
+              <h3 className="font-medium text-lg">
+                {dragging ? "Solte o arquivo aqui" : "Arraste e solte arquivos CSV"}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                ou clique para selecionar arquivos
+              </p>
+            </div>
+            <div>
+              <Button 
+                onClick={handleButtonClick} 
+                disabled={loading}
+              >
+                {loading ? "Processando..." : "Selecionar Arquivo"}
+              </Button>
+              <input
+                id="file-upload"
+                type="file"
+                accept=".csv,.txt"
+                className="hidden"
+                onChange={handleFileChange}
+                disabled={loading}
+              />
+            </div>
+          </>
+        )}
       </div>
     </Card>
   );

@@ -13,65 +13,122 @@ export function parseCSV(file: File): Promise<BatteryData[]> {
           return;
         }
         
-        const lines = text.split("\n");
-        if (lines.length <= 1) {
-          reject(new Error("Arquivo CSV não contém dados suficientes"));
+        // Handle different line endings (CRLF, LF, CR)
+        const lines = text.split(/\r\n|\n|\r/).filter(line => line.trim().length > 0);
+        
+        if (lines.length < 1) {
+          reject(new Error("Arquivo CSV não contém linhas"));
           return;
         }
         
-        const headers = lines[0].split(",").map(header => header.trim());
+        // Try to detect the delimiter (comma or semicolon)
+        const firstLine = lines[0];
+        let delimiter = ',';
+        if (firstLine.includes(';') && !firstLine.includes(',')) {
+          delimiter = ';';
+        }
+        
+        const headers = firstLine.split(delimiter).map(header => header.trim());
+        console.log("CSV Headers detected:", headers);
+        
+        if (headers.length < 2) {
+          reject(new Error("Formato de CSV inválido: pelo menos 2 colunas são necessárias"));
+          return;
+        }
         
         const data: BatteryData[] = [];
+        let validRowCount = 0;
         
+        // Start from the second line (skip headers)
         for (let i = 1; i < lines.length; i++) {
-          if (!lines[i].trim()) continue;
+          const line = lines[i].trim();
+          if (!line) continue;
           
-          const values = lines[i].split(",").map(value => value.trim());
-          if (values.length !== headers.length) continue; // Skip malformed rows
+          const values = line.split(delimiter).map(value => value.trim());
+          
+          // Skip rows with different column count than headers
+          if (values.length !== headers.length) {
+            console.warn(`Line ${i+1} has ${values.length} columns instead of ${headers.length}, skipping`);
+            continue;
+          }
           
           const entry: Record<string, number> = {};
+          let hasValidData = false;
           
           headers.forEach((header, index) => {
-            const value = parseFloat(values[index]);
+            // Try to parse the value as a number
+            const rawValue = values[index];
+            // Handle different number formats (e.g., "1.23", "1,23")
+            const normalizedValue = rawValue.replace(',', '.');
+            const value = parseFloat(normalizedValue);
+            
             if (!isNaN(value)) {
               entry[header] = value;
+              hasValidData = true;
             }
           });
           
-          // Ensure required fields exist
-          if ('time' in entry || 'voltage' in entry || 'current' in entry || 'temperature' in entry) {
-            data.push({
-              time: entry.time || 0,
-              voltage: entry.voltage || 0,
-              current: entry.current || 0,
-              temperature: entry.temperature || 0,
-              ...entry
+          if (hasValidData) {
+            // Check for required fields or assign defaults
+            const dataPoint: BatteryData = {
+              time: 'time' in entry ? entry.time : i - 1, // Default to row index if time not found
+              voltage: 'voltage' in entry ? entry.voltage : (entry.tensao || 0), // Try both English and Portuguese names
+              current: 'current' in entry ? entry.current : (entry.corrente || 0),
+              temperature: 'temperature' in entry ? entry.temperature : (entry.temperatura || 0),
+            };
+            
+            // Add any additional fields
+            Object.keys(entry).forEach(key => {
+              if (!['time', 'voltage', 'current', 'temperature'].includes(key)) {
+                dataPoint[key] = entry[key];
+              }
             });
+            
+            data.push(dataPoint);
+            validRowCount++;
           }
+        }
+        
+        console.log(`CSV parsed successfully: ${validRowCount} valid data points found`);
+        
+        if (data.length === 0) {
+          reject(new Error("Nenhum dado válido encontrado no arquivo"));
+          return;
         }
         
         resolve(data);
       } catch (error) {
-        reject(error);
+        console.error("Error parsing CSV:", error);
+        reject(new Error("Erro ao processar o arquivo CSV"));
       }
     };
     
-    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo"));
+    reader.onerror = () => {
+      console.error("FileReader error");
+      reject(new Error("Não foi possível ler o arquivo"));
+    };
+    
     reader.readAsText(file);
   });
 }
 
 export function extractBatteryInfo(fileName: string): { packNumber: number; moduleNumber: number } {
-  const regex = /B(\d+)MD(\d+)/;
+  // Improved regex to handle different filename formats
+  const regex = /B(\d+)MD(\d+)|B(\d+)[^0-9]+(\d+)|Pack(\d+)[^0-9]+(\d+)/i;
   const match = fileName.match(regex);
   
-  if (match && match.length >= 3) {
+  if (match) {
+    // Check which capturing groups matched
+    const packNumber = parseInt(match[1] || match[3] || match[5] || "0", 10);
+    const moduleNumber = parseInt(match[2] || match[4] || match[6] || "0", 10);
+    
     return {
-      packNumber: parseInt(match[1], 10),
-      moduleNumber: parseInt(match[2], 10)
+      packNumber,
+      moduleNumber
     };
   }
   
+  console.log("Could not extract pack/module from filename:", fileName);
   return {
     packNumber: 0,
     moduleNumber: 0
