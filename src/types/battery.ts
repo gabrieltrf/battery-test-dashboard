@@ -13,5 +13,6 @@ export interface BatteryData {
   voltage: number;
   current: number;
   temperature: number;
-  [key: string]: number; // Para outras colunas que possam existir no CSV
+  soc?: number; // Added SOC as an optional field
+  [key: string]: number | string | undefined; // For other columns that might exist in the CSV
 }
