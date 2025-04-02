@@ -51,6 +51,7 @@ const TestDetails = () => {
   }
 
   // Process data to include SOC values (based on 6.5Ah capacity)
+  // For all data points
   const dataWithSOC = test.data.map(item => {
     return {
       ...item,
@@ -61,8 +62,22 @@ const TestDetails = () => {
   // Filter discharge data (where current is negative)
   const dischargeData = test.data.filter(item => item.current < 0);
   
-  // Process discharge data with SOC
+  // Process discharge data with SOC - invert the SOC so it goes from 100% to 0%
   const dischargeDataWithSOC = dischargeData.map(item => {
+    const calculatedSoc = calculateBatterySOC(item, test.data, 6.5);
+    // Invert SOC for discharge (100% to 0%)
+    const invertedSoc = 100 - calculatedSoc;
+    return {
+      ...item,
+      soc: invertedSoc
+    };
+  });
+  
+  // Filter charge data (where current is positive)
+  const chargeData = test.data.filter(item => item.current > 0);
+  
+  // Process charge data with SOC
+  const chargeDataWithSOC = chargeData.map(item => {
     return {
       ...item,
       soc: calculateBatterySOC(item, test.data, 6.5)
@@ -187,7 +202,7 @@ const TestDetails = () => {
                 />
                 <Tooltip 
                   formatter={(value: number) => [value.toFixed(3), 'Tensão (V)']}
-                  labelFormatter={(label) => `SOC: ${label.toFixed(1)}%`}
+                  labelFormatter={(label) => `SOC: ${(100 - Number(label)).toFixed(1)}%`}
                 />
                 <Legend />
                 <Line 
@@ -205,88 +220,35 @@ const TestDetails = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Gráfico de Descarga da Bateria (Corrente e Tensão x Tempo)</CardTitle>
+            <CardTitle className="text-lg font-semibold">Gráfico de Carga da Bateria (Tensão x SOC)</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={dischargeData}>
+              <LineChart data={chargeDataWithSOC}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
-                  dataKey="time" 
-                  label={{ value: 'Tempo (s)', position: 'insideBottomRight', offset: -5 }}
+                  dataKey="soc" 
+                  name="SOC (%)" 
+                  domain={[0, 100]}
+                  tickFormatter={(value) => `${value}%`}
+                  label={{ value: 'Estado de Carga (%)', position: 'insideBottomRight', offset: -5 }}
                 />
                 <YAxis 
-                  yAxisId="left"
                   label={{ value: 'Tensão (V)', angle: -90, position: 'insideLeft' }}
                 />
-                <YAxis 
-                  yAxisId="right"
-                  orientation="right"
-                  label={{ value: 'Corrente (A)', angle: 90, position: 'insideRight' }}
-                />
                 <Tooltip 
-                  formatter={(value: number, name: string) => {
-                    if (name === "voltage") return [value.toFixed(3), 'Tensão (V)'];
-                    if (name === "current") return [Math.abs(value).toFixed(3), 'Corrente (A)'];
-                    return [value, name];
-                  }}
-                  labelFormatter={(label) => `Tempo: ${label}s`}
+                  formatter={(value: number) => [value.toFixed(3), 'Tensão (V)']}
+                  labelFormatter={(label) => `SOC: ${label.toFixed(1)}%`}
                 />
                 <Legend />
                 <Line 
                   type="monotone" 
                   dataKey="voltage" 
-                  stroke="#3B82F6" 
-                  name="Tensão" 
-                  dot={false} 
-                  yAxisId="left"
-                  activeDot={{ r: 5 }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey={(dataPoint) => Math.abs(dataPoint.current)} 
                   stroke="#10B981" 
-                  name="Corrente" 
+                  name="Tensão (Carga)" 
                   dot={false} 
-                  yAxisId="right"
                   activeDot={{ r: 5 }}
                 />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Gráfico de Tensão x Tempo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={test.data}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="voltage" stroke="#3B82F6" name="Tensão" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Gráfico de Corrente x Tempo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={test.data}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="current" stroke="#10B981" name="Corrente" dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
