@@ -1,5 +1,4 @@
-
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { BatteryTestService } from "@/services/csvService";
 import { BatteryData, BatteryTest } from "@/types/battery";
@@ -10,6 +9,7 @@ import { calculateBatterySOC, calculateDischargeWh } from "@/utils/batteryCalcul
 
 const TestDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate(); // Hook para navegação
   const [test, setTest] = useState<BatteryTest | null>(null);
   const [loading, setLoading] = useState(true);
   const [dischargeWh, setDischargeWh] = useState<number | null>(null);
@@ -209,6 +209,14 @@ const TestDetails = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Botão "Voltar" */}
+      <button
+        onClick={() => navigate(-1)} // Volta para a página anterior
+        className="bg-blue-500 text-white px-4 py-2 rounded mt-4"
+      >
+        Voltar
+      </button>
     </div>
   );
 };
