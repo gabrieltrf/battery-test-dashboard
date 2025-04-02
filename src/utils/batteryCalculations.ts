@@ -8,7 +8,7 @@ import { BatteryData } from "@/types/battery";
  * @param dataPoint The current data point
  * @param allData All data points in the test
  * @param nominalCapacity The nominal capacity in Ah (default: 6.5Ah)
- * @returns SOC percentage (can be over 100% for overcharged batteries)
+ * @returns SOC percentage (0-100%)
  */
 export const calculateBatterySOC = (
   dataPoint: BatteryData, 
@@ -58,8 +58,8 @@ export const calculateBatterySOC = (
   // Start from 100% and subtract the used capacity
   const soc = 100 - (ampHours / nominalCapacity * 100);
   
-  // Allow SOC to be above 100% for overcharged batteries
-  return Math.max(0, soc);
+  // Clamp SOC between 0% and 100%
+  return Math.max(0, Math.min(100, soc));
 };
 
 /**
