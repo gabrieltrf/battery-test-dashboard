@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Table,
@@ -42,25 +41,32 @@ const TestsList = ({ tests, onTestDeleted }: TestsListProps) => {
     navigate(`/test/${id}`);
   };
 
-  const filteredTests = tests
-    .filter((test) => {
-      return (
-        test.fileName.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        (packFilter === undefined || test.packNumber === packFilter) &&
-        (moduleFilter === undefined || test.moduleNumber === moduleFilter)
-      );
-    })
-    .sort(
-      (a, b) => b.uploadDate.getTime() - a.uploadDate.getTime()
+  // Memoize filtered tests to avoid unnecessary recalculations
+  const filteredTests = useMemo(() => {
+    return tests
+      .filter((test) => {
+        return (
+          test.fileName.toLowerCase().includes(searchTerm.toLowerCase()) &&
+          (packFilter === undefined || test.packNumber === packFilter) &&
+          (moduleFilter === undefined || test.moduleNumber === moduleFilter)
+        );
+      })
+      .sort((a, b) => b.uploadDate.getTime() - a.uploadDate.getTime());
+  }, [tests, searchTerm, packFilter, moduleFilter]);
+
+  // Memoize unique packs
+  const uniquePacks = useMemo(() => {
+    return Array.from(new Set(tests.map((test) => test.packNumber))).sort(
+      (a, b) => a - b
     );
+  }, [tests]);
 
-  const uniquePacks = Array.from(
-    new Set(tests.map((test) => test.packNumber))
-  ).sort((a, b) => a - b);
-
-  const uniqueModules = Array.from(
-    new Set(tests.map((test) => test.moduleNumber))
-  ).sort((a, b) => a - b);
+  // Memoize unique modules
+  const uniqueModules = useMemo(() => {
+    return Array.from(new Set(tests.map((test) => test.moduleNumber))).sort(
+      (a, b) => a - b
+    );
+  }, [tests]);
 
   return (
     <Card className="w-full">
@@ -134,10 +140,10 @@ const TestsList = ({ tests, onTestDeleted }: TestsListProps) => {
                       <TableCell>Pack {test.packNumber}</TableCell>
                       <TableCell>Módulo {test.moduleNumber}</TableCell>
                       <TableCell>
-                        {test.uploadDate.toLocaleDateString("pt-BR")} {" "}
+                        {test.uploadDate.toLocaleDateString("pt-BR")}{" "}
                         {test.uploadDate.toLocaleTimeString("pt-BR", {
                           hour: "2-digit",
-                          minute: "2-digit"
+                          minute: "2-digit",
                         })}
                       </TableCell>
                       <TableCell>

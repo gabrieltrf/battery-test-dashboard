@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { BatteryTestService } from "@/services/csvService";
@@ -202,7 +201,7 @@ const TestDetails = () => {
                 />
                 <Tooltip 
                   formatter={(value: number) => [value.toFixed(3), 'Tensão (V)']}
-                  labelFormatter={(label) => `SOC: ${(100 - Number(label)).toFixed(1)}%`}
+                  labelFormatter={(label) => `SOC: ${label.toFixed(1)}%`} // Removido o cálculo redundante
                 />
                 <Legend />
                 <Line 
