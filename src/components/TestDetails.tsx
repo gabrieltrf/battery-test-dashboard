@@ -1,3 +1,4 @@
+
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { BatteryTestService } from "@/services/csvService";
@@ -9,7 +10,7 @@ import { calculateBatterySOC, calculateDischargeWh } from "@/utils/batteryCalcul
 
 const TestDetails = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate(); // Hook para navegação
+  const navigate = useNavigate();
   const [test, setTest] = useState<BatteryTest | null>(null);
   const [loading, setLoading] = useState(true);
   const [dischargeWh, setDischargeWh] = useState<number | null>(null);
@@ -56,6 +57,9 @@ const TestDetails = () => {
       soc: calculateBatterySOC(item, test.data, 6.5)
     };
   });
+
+  // Filter discharge data (where current is negative)
+  const dischargeData = test.data.filter(item => item.current < 0);
 
   return (
     <div className="container mx-auto py-6 px-4">
@@ -157,6 +161,59 @@ const TestDetails = () => {
 
         <Card>
           <CardHeader>
+            <CardTitle className="text-lg font-semibold">Gráfico de Descarga da Bateria</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={dischargeData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="time" 
+                  label={{ value: 'Tempo (s)', position: 'insideBottomRight', offset: -5 }}
+                />
+                <YAxis 
+                  yAxisId="left"
+                  label={{ value: 'Tensão (V)', angle: -90, position: 'insideLeft' }}
+                />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  label={{ value: 'Corrente (A)', angle: 90, position: 'insideRight' }}
+                />
+                <Tooltip 
+                  formatter={(value: number, name: string) => {
+                    if (name === "voltage") return [value.toFixed(3), 'Tensão (V)'];
+                    if (name === "current") return [Math.abs(value).toFixed(3), 'Corrente (A)'];
+                    return [value, name];
+                  }}
+                  labelFormatter={(label) => `Tempo: ${label}s`}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="voltage" 
+                  stroke="#3B82F6" 
+                  name="Tensão" 
+                  dot={false} 
+                  yAxisId="left"
+                  activeDot={{ r: 5 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey={(dataPoint) => Math.abs(dataPoint.current)} 
+                  stroke="#10B981" 
+                  name="Corrente" 
+                  dot={false} 
+                  yAxisId="right"
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle className="text-lg font-semibold">Gráfico de Tensão x Tempo</CardTitle>
           </CardHeader>
           <CardContent>
@@ -186,24 +243,6 @@ const TestDetails = () => {
                 <Tooltip />
                 <Legend />
                 <Line type="monotone" dataKey="current" stroke="#10B981" name="Corrente" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Gráfico de Temperatura x Tempo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={test.data}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="temperature" stroke="#EF4444" name="Temperatura" dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
