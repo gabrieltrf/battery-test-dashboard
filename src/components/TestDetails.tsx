@@ -60,6 +60,14 @@ const TestDetails = () => {
 
   // Filter discharge data (where current is negative)
   const dischargeData = test.data.filter(item => item.current < 0);
+  
+  // Process discharge data with SOC
+  const dischargeDataWithSOC = dischargeData.map(item => {
+    return {
+      ...item,
+      soc: calculateBatterySOC(item, test.data, 6.5)
+    };
+  });
 
   return (
     <div className="container mx-auto py-6 px-4">
@@ -161,7 +169,43 @@ const TestDetails = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Gráfico de Descarga da Bateria</CardTitle>
+            <CardTitle className="text-lg font-semibold">Gráfico de Descarga da Bateria (Tensão x SOC)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={dischargeDataWithSOC}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="soc" 
+                  name="SOC (%)" 
+                  domain={[0, 100]}
+                  tickFormatter={(value) => `${value}%`}
+                  label={{ value: 'Estado de Carga (%)', position: 'insideBottomRight', offset: -5 }}
+                />
+                <YAxis 
+                  label={{ value: 'Tensão (V)', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [value.toFixed(3), 'Tensão (V)']}
+                  labelFormatter={(label) => `SOC: ${label.toFixed(1)}%`}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="voltage" 
+                  stroke="#3B82F6" 
+                  name="Tensão (Descarga)" 
+                  dot={false} 
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Gráfico de Descarga da Bateria (Corrente e Tensão x Tempo)</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
