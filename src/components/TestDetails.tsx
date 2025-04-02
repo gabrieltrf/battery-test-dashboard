@@ -64,9 +64,19 @@ const TestDetails = () => {
   
   // Process discharge data with SOC - invert the SOC so it goes from 100% to 0%
   const dischargeDataWithSOC = dischargeData.map(item => {
-    const calculatedSoc = calculateBatterySOC(item, test.data, 6.5);
+    let calculatedSoc = calculateBatterySOC(item, test.data, 6.5);
+    
+    // Find the max SOC among discharge data points to normalize to 100%
+    const maxDischargeSOC = Math.max(
+      ...dischargeData.map(d => calculateBatterySOC(d, test.data, 6.5))
+    );
+    
+    // Normalize SOC to 100% for discharge
+    const normalizedSoc = (calculatedSoc / maxDischargeSOC) * 100;
+    
     // Invert SOC for discharge (100% to 0%)
-    const invertedSoc = 100 - calculatedSoc;
+    const invertedSoc = 100 - normalizedSoc;
+    
     return {
       ...item,
       soc: invertedSoc
@@ -157,8 +167,8 @@ const TestDetails = () => {
                 <XAxis 
                   dataKey="soc" 
                   name="SOC (%)" 
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
+                  domain={[0, 'auto']}
+                  tickFormatter={(value) => `${Math.round(value)}%`}
                   label={{ value: 'Estado de Carga (%)', position: 'insideBottomRight', offset: -5 }}
                 />
                 <YAxis 
@@ -166,7 +176,7 @@ const TestDetails = () => {
                 />
                 <Tooltip 
                   formatter={(value: number) => [value.toFixed(3), 'Tensão (V)']}
-                  labelFormatter={(label) => `SOC: ${label.toFixed(1)}%`}
+                  labelFormatter={(label) => `SOC: ${Number(label).toFixed(1)}%`}
                 />
                 <Legend />
                 <Line 
@@ -194,7 +204,7 @@ const TestDetails = () => {
                   dataKey="soc" 
                   name="SOC (%)" 
                   domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
+                  tickFormatter={(value) => `${Math.round(value)}%`}
                   label={{ value: 'Estado de Carga (%)', position: 'insideBottomRight', offset: -5 }}
                 />
                 <YAxis 
@@ -202,7 +212,7 @@ const TestDetails = () => {
                 />
                 <Tooltip 
                   formatter={(value: number) => [value.toFixed(3), 'Tensão (V)']}
-                  labelFormatter={(label) => `SOC: ${(100 - Number(label)).toFixed(1)}%`}
+                  labelFormatter={(label) => `SOC: ${Math.round(Number(label))}%`}
                 />
                 <Legend />
                 <Line 
@@ -229,8 +239,8 @@ const TestDetails = () => {
                 <XAxis 
                   dataKey="soc" 
                   name="SOC (%)" 
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
+                  domain={[0, 'auto']}
+                  tickFormatter={(value) => `${Math.round(value)}%`}
                   label={{ value: 'Estado de Carga (%)', position: 'insideBottomRight', offset: -5 }}
                 />
                 <YAxis 
@@ -238,7 +248,7 @@ const TestDetails = () => {
                 />
                 <Tooltip 
                   formatter={(value: number) => [value.toFixed(3), 'Tensão (V)']}
-                  labelFormatter={(label) => `SOC: ${label.toFixed(1)}%`}
+                  labelFormatter={(label) => `SOC: ${Number(label).toFixed(1)}%`}
                 />
                 <Legend />
                 <Line 
