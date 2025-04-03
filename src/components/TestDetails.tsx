@@ -27,6 +27,7 @@ const TestDetails = () => {
   const [loading, setLoading] = useState(true);
   const [dischargeWh, setDischargeWh] = useState<number | null>(null);
   const [zoomRange, setZoomRange] = useState(null);
+  const [dataWithSOC, setDataWithSOC] = useState<BatteryData[]>([]);
 
   const handleZoom = useCallback((range) => {
     setZoomRange(range);
@@ -47,14 +48,30 @@ const TestDetails = () => {
     }
   }, [id]);
 
-  // Process data to include SOC values (based on 6.5Ah capacity)
-  // For all data points
-  const dataWithSOC = useMemo(() => {
-    if (!test) return [];
-    return test.data.map((item) => ({
-      ...item,
-      soc: calculateBatterySOC(item, test.data, 6.5),
-    }));
+  useEffect(() => {
+    if (test) {
+      const capacidadeTotalAh = 6.5; // Capacidade nominal em Ah
+      let capacidadeAcumuladaCarga = 0;
+      let capacidadeAcumuladaDescarga = 0;
+
+      // Processar dados para calcular SOC acumulado
+      const processedData = test.data.map((item) => {
+        if (item.current > 0) {
+          // Carregamento
+          capacidadeAcumuladaCarga += item.current / 3600; // Corrente positiva acumulada em Ah
+          const soc = (capacidadeAcumuladaCarga / capacidadeTotalAh) * 100;
+          return { ...item, soc }; // SOC acumulado para carregamento
+        } else if (item.current < 0) {
+          // Descarregamento
+          capacidadeAcumuladaDescarga += Math.abs(item.current) / 3600; // Corrente negativa acumulada em Ah
+          const soc = 100 - (capacidadeAcumuladaDescarga / capacidadeTotalAh) * 100;
+          return { ...item, soc }; // SOC acumulado para descarregamento
+        }
+        return { ...item, soc: 0 }; // Caso sem corrente
+      });
+
+      setDataWithSOC(processedData);
+    }
   }, [test]);
 
   if (loading) {
@@ -78,29 +95,10 @@ const TestDetails = () => {
   }
 
   // Filter discharge data (where current is negative)
-  const dischargeData = test.data.filter(item => item.current < 0);
-  
-  // Process discharge data with SOC - invert the SOC so it goes from 100% to 0%
-  const dischargeDataWithSOC = dischargeData.map(item => {
-    const calculatedSoc = calculateBatterySOC(item, test.data, 6.5);
-    // Invert SOC for discharge (100% to 0%)
-    const invertedSoc = 100 - calculatedSoc;
-    return {
-      ...item,
-      soc: invertedSoc
-    };
-  });
+  const dischargeData = dataWithSOC.filter(item => item.current < 0);
   
   // Filter charge data (where current is positive)
-  const chargeData = test.data.filter(item => item.current > 0);
-  
-  // Process charge data with SOC
-  const chargeDataWithSOC = chargeData.map(item => {
-    return {
-      ...item,
-      soc: calculateBatterySOC(item, test.data, 6.5)
-    };
-  });
+  const chargeData = dataWithSOC.filter(item => item.current > 0);
 
   return (
     <div className="container mx-auto py-6 px-4">
@@ -166,35 +164,19 @@ const TestDetails = () => {
       <div className="grid grid-cols-1 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Tensão x Estado de Carga (SOC)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300} id="chart-container">
-              <LineChart data={dataWithSOC}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="soc" />
-                <YAxis />
-                <Tooltip />
-                <Brush dataKey="soc" height={30} stroke="#8884d8" />
-                <Line type="monotone" dataKey="voltage" stroke="#3B82F6" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle className="text-lg font-semibold">Gráfico de Descarga da Bateria (Tensão x SOC)</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={dischargeDataWithSOC}>
+              <LineChart data={dischargeData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   dataKey="soc" 
-                  name="SOC (%)" 
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
+                  type="number" 
+                  domain={[0, 100]} // Ajustado para o SOC começar em 100% e diminuir
+                  ticks={[0, 20, 40, 60, 80, 100]} // Ticks de 20% em 20%
+                  reversed // Inverte o eixo X para começar em 100%
+                  tickFormatter={(value) => `${value}%`} 
                   label={{ value: 'Estado de Carga (%)', position: 'insideBottomRight', offset: -5 }}
                 />
                 <YAxis 
@@ -202,7 +184,7 @@ const TestDetails = () => {
                 />
                 <Tooltip 
                   formatter={(value: number) => [value.toFixed(3), 'Tensão (V)']}
-                  labelFormatter={(label) => `SOC: ${label.toFixed(1)}%`} // Removido o cálculo redundante
+                  labelFormatter={(label) => `SOC: ${label.toFixed(1)}%`}
                 />
                 <Legend />
                 <Line 
@@ -224,13 +206,14 @@ const TestDetails = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chargeDataWithSOC}>
+              <LineChart data={chargeData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   dataKey="soc" 
-                  name="SOC (%)" 
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
+                  type="number" 
+                  domain={[0, 150]} 
+                  ticks={[0, 50, 100, 150]} 
+                  tickFormatter={(value) => `${value}%`} 
                   label={{ value: 'Estado de Carga (%)', position: 'insideBottomRight', offset: -5 }}
                 />
                 <YAxis 
