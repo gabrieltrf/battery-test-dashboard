@@ -1,4 +1,3 @@
-
 import { BatteryData } from "@/types/battery";
 
 /**
@@ -8,58 +7,55 @@ import { BatteryData } from "@/types/battery";
  * @param dataPoint The current data point
  * @param allData All data points in the test
  * @param nominalCapacity The nominal capacity in Ah (default: 6.5Ah)
- * @returns SOC percentage (0-100%)
+ * @param allowOvercharge Whether to allow SOC > 100% (default: false)
+ * @returns SOC percentage (0-100% or >100% if allowed)
  */
 export const calculateBatterySOC = (
   dataPoint: BatteryData, 
   allData: BatteryData[], 
-  nominalCapacity: number = 6.5
+  nominalCapacity: number = 6.5,
+  allowOvercharge: boolean = false // Novo parâmetro para permitir >100%
 ): number => {
-  // Get the index of the current data point
+  // Obter o índice do ponto de dados atual
   const currentIndex = allData.findIndex(d => 
     d.time === dataPoint.time && 
     d.voltage === dataPoint.voltage && 
     d.current === dataPoint.current
   );
-  
+
   if (currentIndex === -1) return 0;
-  
-  // Check if we have current data to calculate coulomb counting
+
+  // Verificar se há dados de corrente para cálculo
   const hasCurrentData = allData.some(d => typeof d.current === 'number' && !isNaN(d.current));
-  
-  // If we don't have current data, estimate SOC based on position in the dataset
+
+  // Estimar SOC com base na posição no conjunto de dados, se não houver corrente
   if (!hasCurrentData) {
-    // Simple approach: linear interpolation based on position in the dataset
     return (currentIndex / (allData.length - 1)) * 100;
   }
-  
+
   let ampHours = 0;
-  
-  // Calculate accumulated charge until this point (coulomb counting)
-  // Time should be in hours for Ah calculation, so we'll convert seconds to hours
+
+  // Calcular carga acumulada (coulomb counting)
   for (let i = 0; i < currentIndex; i++) {
     const point = allData[i];
     const nextPoint = allData[i + 1];
-    
+
     if (nextPoint) {
-      // Calculate time difference in hours
-      const timeDiff = (nextPoint.time - point.time) / 3600;
-      
-      // Average current during this time interval
-      const avgCurrent = (point.current + nextPoint.current) / 2;
-      
-      // Add to accumulated charge (Ah)
-      // Positive current means charging, negative means discharging
-      ampHours += avgCurrent * timeDiff;
+      const timeDiff = (nextPoint.time - point.time) / 3600; // Diferença de tempo em horas
+      const avgCurrent = (point.current + nextPoint.current) / 2; // Corrente média
+      ampHours += avgCurrent * timeDiff; // Acumular carga
     }
   }
-  
-  // Calculate SOC as percentage of nominal capacity
-  // Start from 100% and subtract the used capacity
+
+  // Calcular SOC como porcentagem da capacidade nominal
   const soc = 100 - (ampHours / nominalCapacity * 100);
-  
-  // Clamp SOC between 0% and 100%
-  return Math.max(0, Math.min(100, soc));
+
+  // Limitar SOC condicionalmente
+  if (!allowOvercharge) {
+    return Math.max(0, Math.min(100, soc)); // Entre 0% e 100%
+  } else {
+    return Math.max(0, soc); // Permitir >100%, mas não <0%
+  }
 };
 
 /**
