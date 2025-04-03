@@ -1,11 +1,24 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { BatteryTestService } from "@/services/csvService";
 import { BatteryData, BatteryTest } from "@/types/battery";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush } from "recharts";
 import { Battery, Clock, Package, Layers, Zap } from "lucide-react";
 import { calculateBatterySOC, calculateDischargeWh } from "@/utils/batteryCalculations";
+import html2canvas from "html2canvas";
+
+const exportChartAsImage = () => {
+  const chartElement = document.getElementById("chart-container");
+  if (chartElement) {
+    html2canvas(chartElement).then((canvas) => {
+      const link = document.createElement("a");
+      link.download = "chart.png";
+      link.href = canvas.toDataURL();
+      link.click();
+    });
+  }
+};
 
 const TestDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -13,6 +26,11 @@ const TestDetails = () => {
   const [test, setTest] = useState<BatteryTest | null>(null);
   const [loading, setLoading] = useState(true);
   const [dischargeWh, setDischargeWh] = useState<number | null>(null);
+  const [zoomRange, setZoomRange] = useState(null);
+
+  const handleZoom = useCallback((range) => {
+    setZoomRange(range);
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -28,6 +46,16 @@ const TestDetails = () => {
       setLoading(false);
     }
   }, [id]);
+
+  // Process data to include SOC values (based on 6.5Ah capacity)
+  // For all data points
+  const dataWithSOC = useMemo(() => {
+    if (!test) return [];
+    return test.data.map((item) => ({
+      ...item,
+      soc: calculateBatterySOC(item, test.data, 6.5),
+    }));
+  }, [test]);
 
   if (loading) {
     return (
@@ -48,15 +76,6 @@ const TestDetails = () => {
       </div>
     );
   }
-
-  // Process data to include SOC values (based on 6.5Ah capacity)
-  // For all data points
-  const dataWithSOC = test.data.map(item => {
-    return {
-      ...item,
-      soc: calculateBatterySOC(item, test.data, 6.5)
-    };
-  });
 
   // Filter discharge data (where current is negative)
   const dischargeData = test.data.filter(item => item.current < 0);
@@ -150,32 +169,14 @@ const TestDetails = () => {
             <CardTitle className="text-lg font-semibold">Tensão x Estado de Carga (SOC)</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={300} id="chart-container">
               <LineChart data={dataWithSOC}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="soc" 
-                  name="SOC (%)" 
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
-                  label={{ value: 'Estado de Carga (%)', position: 'insideBottomRight', offset: -5 }}
-                />
-                <YAxis 
-                  label={{ value: 'Tensão (V)', angle: -90, position: 'insideLeft' }}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [value.toFixed(3), 'Tensão (V)']}
-                  labelFormatter={(label) => `SOC: ${label.toFixed(1)}%`}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="voltage" 
-                  stroke="#3B82F6" 
-                  name="Tensão" 
-                  dot={false} 
-                  activeDot={{ r: 5 }}
-                />
+                <XAxis dataKey="soc" />
+                <YAxis />
+                <Tooltip />
+                <Brush dataKey="soc" height={30} stroke="#8884d8" />
+                <Line type="monotone" dataKey="voltage" stroke="#3B82F6" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -260,6 +261,14 @@ const TestDetails = () => {
         className="bg-blue-500 text-white px-4 py-2 rounded mt-4"
       >
         Voltar
+      </button>
+
+      {/* Botão "Exportar Gráfico" */}
+      <button
+        onClick={exportChartAsImage}
+        className="bg-green-500 text-white px-4 py-2 rounded mt-4"
+      >
+        Exportar Gráfico
       </button>
     </div>
   );

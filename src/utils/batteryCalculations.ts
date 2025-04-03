@@ -1,4 +1,34 @@
-import { BatteryData } from "@/types/battery";
+import { BatteryData, BatteryTest } from "@/types/battery";
+import { openDB } from "idb";
+import LZString from "lz-string";
+
+const dbPromise = openDB("BatteryTestsDB", 1, {
+  upgrade(db) {
+    db.createObjectStore("tests", { keyPath: "id" });
+  },
+});
+
+export async function saveTestToIndexedDB(test: BatteryTest) {
+  const db = await dbPromise;
+  await db.put("tests", test);
+}
+
+export async function getTestsFromIndexedDB(): Promise<BatteryTest[]> {
+  const db = await dbPromise;
+  return await db.getAll("tests");
+}
+
+export function saveCompressedTests(tests: BatteryTest[]): void {
+  const compressed = LZString.compress(JSON.stringify(tests));
+  localStorage.setItem("batteryTests", compressed);
+}
+
+export function loadCompressedTests(): BatteryTest[] {
+  const compressed = localStorage.getItem("batteryTests");
+  if (!compressed) return [];
+  const decompressed = LZString.decompress(compressed);
+  return JSON.parse(decompressed || "[]");
+}
 
 /**
  * Calculates the State of Charge (SOC) for a battery data point
