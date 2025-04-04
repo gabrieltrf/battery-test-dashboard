@@ -5,6 +5,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "build": "react-scripts build && mv build docs",
     "predeploy": "npm run build",
     "deploy": "gh-pages -b main -d build",
     "start": "react-scripts start",
